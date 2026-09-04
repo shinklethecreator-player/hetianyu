@@ -1,0 +1,106 @@
+:root {
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: #70c8f9;
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  overflow-x: hidden;
+  background: #70c8f9;
+}
+
+.sky-stage {
+  display: grid;
+  min-height: 220vh;
+  justify-items: center;
+  background: #70c8f9;
+}
+
+.hero {
+  position: sticky;
+  top: calc((100svh - min(100svh, 56.25vw)) / 2);
+  width: min(100vw, 177.7778svh);
+  height: min(100svh, 56.25vw);
+  overflow: hidden;
+  isolation: isolate;
+  background-image:
+    linear-gradient(
+      180deg,
+      rgba(7, 82, 151, 0.04),
+      rgba(255, 255, 255, 0.04) 48%,
+      rgba(255, 255, 255, 0.1)
+    ),
+    url("assets/sky-background.jpg");
+  background-position: center;
+  background-size: cover;
+}
+
+.hero::before {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.045) 50%, rgba(12, 83, 146, 0.035) 50%),
+    radial-gradient(circle at 50% 48%, transparent 42%, rgba(4, 49, 104, 0.14) 100%);
+  background-size: 100% 4px, 100% 100%;
+  mix-blend-mode: soft-light;
+  opacity: 0.48;
+}
+
+.hero::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background: linear-gradient(180deg, rgba(0, 62, 136, 0.02), rgba(255, 255, 255, 0.05));
+}
+
+.ascii-cloud {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
+  width: min(70vw, 128vh);
+  max-width: 92%;
+  height: auto;
+  transform: translate(-50%, -50%) scale(var(--cloud-zoom, 1));
+  transform-origin: 50% 50%;
+  mix-blend-mode: screen;
+  opacity: 0.98;
+  filter: brightness(1.04) contrast(0.96) saturate(0.72);
+  pointer-events: none;
+  transition: filter 160ms ease;
+  will-change: transform;
+}
+
+#attention-canvas {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.scroll-space {
+  min-height: 120vh;
+}
+
+@media (max-width: 700px) {
+  .hero {
+    top: 0;
+    width: 100vw;
+    height: 100svh;
+    background-position: center bottom;
+  }
+}

@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>何天宇 — 何为天空</title>
+<style>
+  * { box-sizing: border-box; }
+  html { height: 100%; }
+  body {
+    margin: 0; height: 700vh; background: #000104; overflow-x: hidden;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    -webkit-font-smoothing: antialiased;
+  }
+  #stage {
+    position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: min(100vw, 177.7778vh); height: min(56.25vw, 100vh); overflow: hidden;
+  }
+  #stage.zoomed { cursor: grab; }
+  #stage.dragging { cursor: grabbing; }
+  #bgTrack {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 520%; z-index: 0; pointer-events: none;
+    transform-origin: 50% 100%; transform: translate3d(0, 0, 0);
+    background:
+      url("assets/bg.jpg") center bottom/100% auto no-repeat,
+      radial-gradient(circle at 12% 8%, rgba(255,255,255,.72) 0 1px, transparent 1.6px),
+      radial-gradient(circle at 28% 22%, rgba(174,206,255,.54) 0 .8px, transparent 1.5px),
+      radial-gradient(circle at 45% 13%, rgba(255,255,255,.64) 0 .7px, transparent 1.4px),
+      radial-gradient(circle at 67% 19%, rgba(195,220,255,.62) 0 .9px, transparent 1.7px),
+      radial-gradient(circle at 82% 7%, rgba(255,255,255,.56) 0 .75px, transparent 1.5px),
+      linear-gradient(to bottom, #000000 0%, #000104 50%, #001137 100%);
+    background-size:
+      100% auto,
+      100% 42%,
+      100% 42%,
+      100% 42%,
+      100% 42%,
+      100% 42%,
+      100% 100%;
+    will-change: transform;
+  }
+  #stars {
+    position: absolute; inset: 0; z-index: 2; overflow: hidden;
+    opacity: 0; mix-blend-mode: screen; transform-origin: 50% 48%;
+    will-change: opacity, transform;
+  }
+  #nebula {
+    position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    opacity: 0; mix-blend-mode: screen;
+    transform-origin: 50% 48%; transform: translate3d(0, 0, 0);
+    background: url("assets/ascii-nebula.jpg") center 48%/116% auto no-repeat;
+    filter: brightness(.84) contrast(1.04);
+    will-change: opacity;
+  }
+  #nebula::after {
+    content: ""; position: absolute; inset: -2%;
+    pointer-events: none; opacity: .24;
+    background: url("assets/ascii-nebula.jpg") center 48%/116% auto no-repeat;
+    filter: blur(12px) brightness(1.18);
+    transform: scale(1.018);
+  }
+  #stars i {
+    position: absolute; display: block; border-radius: 50%;
+    background: rgba(255,255,255,.92);
+    box-shadow: 0 0 4px rgba(178,211,255,.66), 0 0 9px rgba(82,150,255,.26);
+    animation: twinkle 4.8s ease-in-out infinite;
+  }
+  @keyframes twinkle {
+    0%, 100% { opacity: .34; transform: scale(.82); }
+    48% { opacity: 1; transform: scale(1.18); }
+  }
+  #planet {
+    position: absolute; inset: 0; z-index: 3; pointer-events: none;
+    mix-blend-mode: screen; transform-origin: 50% 48%; will-change: transform;
+  }
+  #profileOrbit {
+    position: absolute; left: 50%; top: 50%; z-index: 5;
+    width: min(82%, 112vh); aspect-ratio: 16 / 9;
+    opacity: 0; pointer-events: none;
+    transform: translate3d(-50%, -50%, 0) scale(.92);
+    transform-origin: 50% 50%; will-change: opacity, transform;
+  }
+  #profileOrbit img {
+    width: 100%; height: 100%; display: block;
+    object-fit: contain; opacity: .92; filter: brightness(1.03) contrast(1.08);
+  }
+  #profileHotspot {
+    position: absolute; left: 55.52%; top: 42.8%;
+    width: 7.2%; aspect-ratio: 1; transform: translate(-50%, -50%);
+    padding: 0; border: 0; border-radius: 50%; background: transparent;
+    cursor: pointer; pointer-events: auto;
+  }
+  #profileHotspot::before {
+    content: ""; position: absolute; inset: 12%; border-radius: 50%;
+    background: radial-gradient(circle, rgba(104,245,255,.46) 0 23%, rgba(34,162,255,.24) 45%, rgba(36,126,255,0) 72%);
+    box-shadow: 0 0 18px rgba(74,211,255,.29), 0 0 42px rgba(49,118,255,.17);
+    animation: blueBreath 3.6s ease-in-out infinite;
+  }
+  #profileHotspot::after {
+    content: ""; position: absolute; inset: 28%; border-radius: 50%;
+    background: rgba(145,250,255,.26); filter: blur(6px);
+    animation: blueCore 2.8s ease-in-out infinite;
+  }
+  @keyframes blueBreath {
+    0%, 100% { opacity: .26; transform: scale(.88); }
+    50% { opacity: .48; transform: scale(1.12); }
+  }
+  @keyframes blueCore {
+    0%, 100% { opacity: .21; transform: scale(.9); }
+    50% { opacity: .39; transform: scale(1.18); }
+  }
+  #cloud { position: absolute; inset: 0; z-index: 4; }
+  #paperModal {
+    position: fixed; inset: 0; z-index: 8; display: grid; place-items: center;
+    padding: clamp(18px, 4vw, 56px); pointer-events: none; opacity: 0;
+    background: rgba(0,2,10,.18); transition: opacity .22s ease;
+  }
+  #paperModal.open { pointer-events: auto; opacity: 1; }
+  .paper-card {
+    width: min(560px, 100%); border: 1px solid rgba(197,224,255,.28);
+    background: rgba(3,8,20,.78); color: rgba(238,247,255,.92);
+    backdrop-filter: blur(18px); padding: 24px 26px 22px;
+    box-shadow: 0 24px 80px rgba(0,0,0,.44), 0 0 42px rgba(114,164,255,.14);
+  }
+  .paper-card h2 {
+    margin: 0 32px 12px 0; font-size: clamp(18px, 2.2vw, 24px);
+    line-height: 1.18; font-weight: 600;
+  }
+  #profilePhoto {
+    display: none; float: left; width: 92px; height: 92px; margin: 3px 18px 10px 0;
+    object-fit: cover; object-position: 32% center;
+    border: 1px solid rgba(197,224,255,.32);
+    box-shadow: 0 0 26px rgba(82,171,255,.16);
+  }
+  .paper-card p { margin: 0; line-height: 1.72; font-size: 13px; color: rgba(225,239,255,.78); }
+  .paper-meta { margin-bottom: 14px; font-size: 12px; color: rgba(180,210,255,.68); }
+  .paper-tags { display: flex; flex-wrap: wrap; gap: 7px; margin: 18px 0 20px; }
+  .paper-tags span {
+    border: 1px solid rgba(184,219,255,.26); padding: 4px 8px;
+    color: rgba(236,247,255,.82); font-size: 11px; background: rgba(120,171,255,.08);
+  }
+  .paper-links { display: flex; flex-wrap: wrap; gap: 10px; }
+  .paper-links a {
+    color: #fff; text-decoration: none; font-size: 12px;
+    border-bottom: 1px solid rgba(255,255,255,.42); padding-bottom: 2px;
+  }
+  #paperClose {
+    position: absolute; top: 14px; right: 16px; width: 28px; height: 28px;
+    color: rgba(255,255,255,.72); background: transparent; border: 0;
+    font: 22px/1 ui-monospace, monospace; cursor: pointer;
+  }
+
+  #dbg {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 268px; display: none;
+    background: rgba(10,14,22,.84); backdrop-filter: blur(12px);
+    border-left: 1px solid rgba(255,255,255,.14);
+    overflow-y: auto; padding: 14px 16px 32px; color: #fff; font-size: 11px; z-index: 5;
+  }
+  #dbg.on { display: block; }
+  #dbg h1 { font-size: 12px; font-weight: 500; margin: 0 0 12px; }
+  #dbg .sec { margin: 14px 0 6px; padding-top: 9px; border-top: 1px solid rgba(255,255,255,.12); color: rgba(255,255,255,.55); }
+  #dbg .row { margin: 6px 0; }
+  #dbg .lab { display: flex; justify-content: space-between; color: rgba(255,255,255,.78); margin-bottom: 2px; }
+  #dbg .lab b { font-weight: 500; font-variant-numeric: tabular-nums; }
+  #dbg input[type=range] { width: 100%; height: 14px; -webkit-appearance: none; background: none; }
+  #dbg input[type=range]::-webkit-slider-runnable-track { height: 1px; background: rgba(255,255,255,.3); }
+  #dbg input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 9px; height: 9px; margin-top: -4px; background: #fff; }
+  #dbg #fps { margin-top: 12px; padding-top: 9px; border-top: 1px solid rgba(255,255,255,.12); color: rgba(255,255,255,.6); line-height: 1.8; }
+  #dbg #fps b { color: #fff; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <div id="bgTrack"></div>
+  <div id="nebula"></div>
+  <div id="stars"></div>
+  <canvas id="planet"></canvas>
+  <div id="profileOrbit" aria-hidden="true">
+    <img src="assets/profile-orbit.jpg" alt="">
+    <button id="profileHotspot" type="button" aria-label="打开个人主页信息"></button>
+  </div>
+  <canvas id="cloud"></canvas>
+</div>
+<div id="paperModal" aria-hidden="true">
+  <article class="paper-card" role="dialog" aria-modal="true" aria-labelledby="paperTitle">
+    <button id="paperClose" type="button" aria-label="关闭">×</button>
+    <img id="profilePhoto" src="assets/deeptimhe-profile.png" alt="Tianyu He">
+    <h2 id="paperTitle"></h2>
+    <div id="paperMeta" class="paper-meta"></div>
+    <p id="paperSummary"></p>
+    <div id="paperTags" class="paper-tags" aria-label="标签"></div>
+    <nav id="paperLinks" class="paper-links" aria-label="论文链接"></nav>
+  </article>
+</div>
+<aside id="dbg"><h1>debug</h1><div id="dbgui"></div><div id="fps"></div></aside>
+
+<script>
+"use strict";
+
+/* ============================================================
+   素材：ASCII 云动画（白字黑底）。
+   云视频先逐像素转换为白色 alpha 贴图：
+   原灰度负责透明度，再用 screen 混合叠到天空上。
+   原始栅格 19 × 32 px，列相位 13 行相位 26；此处按当前视频宽度换算。
+   ============================================================ */
+const VIDEO_URI = "assets/ascii-animation-4.mp4";
+const PLANET_VIDEO_URIS = [
+  "assets/ascii-animation-11.mp4",
+  "assets/ascii-animation-12.mp4",
+  "assets/ascii-animation-13.mp4",
+  "assets/ascii-animation-14.mp4",
+  "assets/ascii-animation-15.mp4",
+  "assets/ascii-animation-16.mp4",
+  "assets/ascii-animation-17.mp4"
+];
+const SRC_W = 3008, VID_W = 3008, VID_H = 1344, K = VID_W / SRC_W;
+const GRID = {
+  cw: 19 * K, ch: 32 * K, x0: 13 * K, y0: 26 * K,
+  cols: Math.floor((VID_W - 13 * K) / (19 * K)),
+  rows: Math.floor((VID_H - 26 * K) / (32 * K)),
+  w: VID_W, h: VID_H
+};
+
+const config = {
+  cloud: {
+    x: 0.50, y: 0.50, width: 0.656,
+    alpha: 1.00,       // 云整体强度
+    contrast: 1.25,    // 提高对比 = 压掉暗字，只留亮的
+    brightness: 1.05,
+    bloom: 0.40,       // 柔光：远看更像云
+    bloomBlur: 26,     // 柔光半径（越大越散）
+    sampleEvery: 4     // 每几帧重采一次字符亮度
+  },
+  planetDefaults: {
+    alpha: 0.86,
+    contrast: 1.28,
+    brightness: 1.08,
+    bloom: 0.26,
+    bloomBlur: 18,
+    blackCut: 0.055,
+    edgeSoftness: 0.105,
+    zoomBoost: 1.8,
+    sampleEvery: 4,
+    heads: 3,
+    minLinks: 3,
+    maxLinks: 6,
+    intervalMin: 520,
+    intervalMax: 1180,
+    durationMin: 800,
+    durationMax: 1500,
+    temperature: 0.46,
+    lineOpacityMin: 0.10,
+    lineOpacityMax: 0.62,
+    lineWidthMin: 0.28,
+    lineWidthMax: 0.95,
+    maxDistance: 220,
+    curve: 0.10,
+    queryBrightness: 1.35,
+    start: 0.58,
+    end: 0.78
+  },
+  planets: [
+    { name: "星球1", video: PLANET_VIDEO_URIS[0], x: 0.612, y: 0.412, width: 0.055, paper: 0, phase: 0.10, start: 0.56, end: 0.74 },
+    { name: "星球2", video: PLANET_VIDEO_URIS[1], x: 0.492, y: 0.460, width: 0.046, paper: 1, phase: 0.34, start: 0.58, end: 0.76 },
+    { name: "星球3", video: PLANET_VIDEO_URIS[2], x: 0.708, y: 0.388, width: 0.041, paper: 2, phase: 0.58, start: 0.60, end: 0.78 },
+    { name: "星球4", video: PLANET_VIDEO_URIS[3], x: 0.388, y: 0.532, width: 0.039, paper: 3, phase: 0.82, start: 0.59, end: 0.77 },
+    { name: "星球5", video: PLANET_VIDEO_URIS[4], x: 0.564, y: 0.580, width: 0.034, paper: 4, phase: 1.06, start: 0.62, end: 0.80 },
+    { name: "星球6", video: PLANET_VIDEO_URIS[5], x: 0.300, y: 0.436, width: 0.032, paper: 5, phase: 1.30, start: 0.61, end: 0.79 },
+    { name: "星球7", video: PLANET_VIDEO_URIS[6], x: 0.676, y: 0.540, width: 0.030, paper: 6, phase: 1.54, start: 0.63, end: 0.81 }
+  ],
+  token: { inkMin: 0.10 },
+  motion: { driftX: 9, driftY: 4, driftSpeed: 0.045, breatheScale: 0.007, breatheSpeed: 0.10 },
+  attention: {
+    enabled: true, heads: 4, minLinks: 3, maxLinks: 7,
+    intervalMin: 380, intervalMax: 1300,
+    durationMin: 900, durationMax: 1800,
+    temperature: 0.40, sweep: 0.30,
+    lineOpacityMin: 0.10, lineOpacityMax: 0.80,
+    lineWidthMin: 0.3, lineWidthMax: 1.2,
+    maxDistance: 300, curve: 0.13, queryBox: 1, queryBrightness: 1.5,
+    hoverRadius: 180, hoverStrength: 0.75, transitionSpeed: 0.08
+  },
+  flicker: {
+    lineAmount: 0.62, speed: 4.6, strobe: 0.35,
+    arrival: 1.30, cellFlash: 1.50, sparkle: 16
+  },
+  scroll: {
+    scaleEnd: 2.7, skyScaleEnd: 1.22,
+    zoomEnd: 0.30,
+    handoffStart: 0.30, handoffEnd: 0.66,
+    deepStart: 0.66, deepEnd: 0.84,
+    bgTrackScreens: 5.2, spaceEnd: 0.98,
+    nebulaStart: 0.53, nebulaEnd: 0.75,
+    galaxyZoomStart: 0.68, galaxyZoomEnd: 0.84, galaxyZoomMax: 3,
+    finalLiftStart: 0.86, finalLiftEnd: 1.00, finalLiftDistance: 1.18
+  },
+  rendering: { maxDpr: 2 }
+};
+const CL = config.cloud, TK = config.token, MO = config.motion,
+      AT = config.attention, FL = config.flicker, SC = config.scroll, RE = config.rendering;
+const PLANETS = config.planets.map(p => ({ ...config.planetDefaults, ...p }));
+const PAPERS = [
+  {
+    title: "AI4AI at Scale: A Full-Pipeline System for Enhancing LLM Agentic Capabilities",
+    meta: "XYZ Agentic Team · Technical Report 2026",
+    summary: "Two open-weight Deep Search agents, XYZ-Aquila-mini (35B) and XYZ-Aquila-pro (397B), achieving state-of-the-art results across multiple Deep Search benchmarks.",
+    tags: ["AI4AI", "LLM Agents", "Deep Search", "Open-weight Models", "System Optimization"],
+    links: [
+      ["Paper", "https://xyz-lab.ai/blogs/ai4ai-at-scale/assets/bounded-exploration-ai4ai-system-optimization.pdf"],
+      ["Project", "https://xyz-lab.ai/"],
+      ["Code", "https://github.com/XYZ-AI-Lab"]
+    ]
+  },
+  {
+    title: "Beyond Pixel Histories: World Models with Persistent 3D State",
+    meta: "Samuel Garcin, Thomas Walker, Steven McDonagh, Tim Pearce, Hakan Bilen, Tianyu He, Kaixin Wang, Jiang Bian · ICML 2026",
+    summary: "A world model paradigm that simulates the evolution of a latent 3D scene, including environment, camera, and renderer.",
+    tags: ["World Models", "3D State", "Video", "Rendering"],
+    links: [
+      ["Paper", "https://arxiv.org/pdf/2603.03482"],
+      ["Project", "https://francelico.github.io/persist.github.io/"]
+    ]
+  },
+  {
+    title: "LIVE: Long-horizon Interactive Video World Modeling",
+    meta: "Junchao Huang, Ziyang Ye, Xinting Hu, Tianyu He, Guiyu Zhang, Shaoshuai Shi, Jiang Bian, Li Jiang · ICML 2026",
+    summary: "A framework that alleviates autoregressive error accumulation in long-horizon interactive video world modeling through cycle consistency.",
+    tags: ["Interactive Video", "World Modeling", "Cycle Consistency", "Long Horizon"],
+    links: [
+      ["Paper", "https://arxiv.org/pdf/2602.03747"],
+      ["Project", "https://junchao-cs.github.io/LIVE-demo/"],
+      ["Code", "https://github.com/Junchao-cs/LIVE"]
+    ]
+  },
+  {
+    title: "Luminark: Training-free, Probabilistically-Certified Watermarking for General Vision Generative Models",
+    meta: "Jiayi Xu, Zhang Zhang, Yuanrui Zhang, Ruitao Chen, Yixian Xu, Tianyu He, Di He · arXiv 2026",
+    summary: "A training-free and probabilistically-certified watermarking method for general vision generative models.",
+    tags: ["Watermarking", "Vision Generation", "Certification", "Training-free"],
+    links: [["Paper", "https://arxiv.org/pdf/2601.01085"]]
+  },
+  {
+    title: "Quotient-Space Diffusion Models",
+    meta: "Yixian Xu, Yusong Wang, Shengjie Luo, Kaiyuan Gao, Tianyu He, Di He, Chang Liu · ICLR Oral 2026",
+    summary: "A formal framework for diffusion modeling on a general quotient space.",
+    tags: ["Diffusion Models", "Quotient Space", "Generative Modeling", "Theory"],
+    links: [["Paper", "https://openreview.net/pdf?id=3JPAkwSVc4"]]
+  },
+  {
+    title: "Geometry Forcing: Marrying Video Diffusion and 3D Representation for Consistent World Modeling",
+    meta: "Haoyu Wu, Diankun Wu, Tianyu He, Junliang Guo, Yang Ye, Yueqi Duan, Jiang Bian · ICLR 2026",
+    summary: "Combining video diffusion with 3D representation for geometrically consistent world modeling.",
+    tags: ["Video Diffusion", "3D Representation", "Geometry", "World Modeling"],
+    links: [
+      ["Paper", "https://arxiv.org/pdf/2507.07982"],
+      ["Project", "https://geometryforcing.github.io"],
+      ["Code", "https://github.com/CIntellifusion/GeometryForcing"]
+    ]
+  },
+  {
+    title: "Fast Autoregressive Video Generation with Diagonal Decoding",
+    meta: "Yang Ye, Junliang Guo, Haoyu Wu, Tianyu He, Tim Pearce, Tabish Rashid, Katja Hofmann, Jiang Bian · CVPR Findings 2026",
+    summary: "Accelerating autoregressive video generation through a diagonal decoding strategy.",
+    tags: ["Autoregressive Video", "Diagonal Decoding", "Acceleration", "Generation"],
+    links: [
+      ["Paper", "https://arxiv.org/pdf/2503.14070"],
+      ["Project", "https://www.microsoft.com/en-us/research/project/ar-videos/diagonal-decoding/"]
+    ]
+  }
+];
+const PROFILE = {
+  title: "Tianyu He",
+  meta: "Tech Lead · XYZ AI Lab / Former Senior Researcher · Microsoft Research Asia",
+  summary: "Tianyu He leads multimodal AI work at XYZ AI Lab. Previously, he was a Senior Researcher in the Machine Learning Group at Microsoft Research Asia. He graduated from the University of Science and Technology of China in 2019, worked at Alibaba DAMO Academy before joining Microsoft in 2022, and focuses on multimodal foundation models, interactive video world models, and generative modeling.",
+  tags: ["Multimodal Foundation Models", "Interactive Video World Models", "Generative Modeling", "XYZ AI Lab", "Microsoft Research Asia", "USTC"],
+  links: [
+    ["Homepage", "https://deeptimhe.github.io"],
+    ["Google Scholar", "https://scholar.google.com/citations?user=P08KU1YAAAAJ"],
+    ["GitHub", "https://github.com/deeptimhe"],
+    ["LinkedIn", "https://www.linkedin.com/in/timhehome/"]
+  ]
+};
+
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+function smoothstep(e0, e1, x) { const t = clamp((x - e0) / (e1 - e0 || 1e-6), 0, 1); return t * t * (3 - 2 * t); }
+function hash2(ix, iy, s) {
+  let h = Math.imul(ix, 374761393) ^ Math.imul(iy, 668265263) ^ Math.imul(s, 1442695041);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+}
+function vnoise(x, y, s) {
+  const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
+  const ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy);
+  const a = hash2(ix, iy, s), b = hash2(ix + 1, iy, s), c = hash2(ix, iy + 1, s), d = hash2(ix + 1, iy + 1, s);
+  return a + (b - a) * ux + (c - a) * uy + (a - b - c + d) * ux * uy;
+}
+
+/* ============================================================
+   载入素材：只做两件事——建柔光层、抽 token
+   ============================================================ */
+const bloomCv = document.createElement("canvas");
+const gridCv = document.createElement("canvas");
+const alphaCv = document.createElement("canvas");
+let tokens = [], ready = false, vid = null, frameN = 0;
+const planets = PLANETS.map(p => ({
+  ...p,
+  ready: false,
+  videoEl: null,
+  w: 0,
+  h: 0,
+  grid: null,
+  tokens: [],
+  groups: [],
+  nextAt: 0,
+  frameN: 0,
+  canSample: true,
+  bounds: null,
+  alphaCv: document.createElement("canvas"),
+  bloomCv: document.createElement("canvas"),
+  gridCv: document.createElement("canvas")
+}));
+
+function prepare(v) {
+  vid = v;
+  gridCv.width = GRID.cols; gridCv.height = GRID.rows;
+  tokens = [];
+  for (let r = 0; r < GRID.rows; r++) {
+    for (let c = 0; c < GRID.cols; c++) {
+      const sx = GRID.x0 + c * GRID.cw, sy = GRID.y0 + r * GRID.ch;
+      tokens.push({
+        u: (sx + GRID.cw / 2) / GRID.w, v: (sy + GRID.ch / 2) / GRID.h,
+        sx, sy, ink: 0
+      });
+    }
+  }
+  const bw = Math.max(4, Math.round(GRID.w / CL.bloomBlur));
+  bloomCv.width = bw; bloomCv.height = Math.max(4, Math.round(GRID.h / CL.bloomBlur));
+  alphaCv.width = GRID.w; alphaCv.height = GRID.h;
+  ready = true;
+}
+
+// 每 N 帧把当前画面降到 cols×rows，一格一像素，直接得到每个字符的亮度
+let canSample = true;
+function sampleGrid() {
+  if (!canSample) return;
+  const g = gridCv.getContext("2d", { willReadFrequently: true });
+  try {
+  g.drawImage(vid, GRID.x0, GRID.y0, GRID.cols * GRID.cw, GRID.rows * GRID.ch,
+              0, 0, GRID.cols, GRID.rows);
+    const px = g.getImageData(0, 0, GRID.cols, GRID.rows).data;
+    for (let i = 0, p = 0; i < tokens.length; i++, p += 4) {
+      tokens[i].ink = clamp((px[p] + px[p + 1] + px[p + 2]) / 765 * 2.2, 0, 1);
+    }
+  } catch (e) {
+    // 外链视频在 file:// 下会污染 canvas，读不了像素。退回固定权重，其余照常
+    canSample = false;
+    for (const t of tokens) t.ink = 0.6;
+  }
+}
+
+function buildBloom() {
+  const bw = Math.max(4, Math.round(GRID.w / CL.bloomBlur));
+  bloomCv.width = bw; bloomCv.height = Math.max(4, Math.round(GRID.h / CL.bloomBlur));
+}
+
+function updateAlphaCloud() {
+  const ac = alphaCv.getContext("2d", { willReadFrequently: true });
+  ac.clearRect(0, 0, GRID.w, GRID.h);
+  ac.drawImage(vid, 0, 0, GRID.w, GRID.h);
+  const img = ac.getImageData(0, 0, GRID.w, GRID.h);
+  const px = img.data;
+  for (let i = 0; i < px.length; i += 4) {
+    const gray = (px[i] + px[i + 1] + px[i + 2]) / 765;
+    const shaped = clamp((gray - 0.5) * CL.contrast + 0.5, 0, 1);
+    const alpha = clamp(shaped * CL.brightness, 0, 1) * CL.alpha;
+    px[i] = 255;
+    px[i + 1] = 255;
+    px[i + 2] = 255;
+    px[i + 3] = Math.round(alpha * 255);
+  }
+  ac.putImageData(img, 0, 0);
+}
+
+function preparePlanet(p, v) {
+  p.videoEl = v;
+  p.w = v.videoWidth || 1024;
+  p.h = v.videoHeight || 1024;
+  const sx = p.w / VID_W, sy = p.h / VID_H;
+  p.grid = {
+    cw: GRID.cw * sx, ch: GRID.ch * sy, x0: GRID.x0 * sx, y0: GRID.y0 * sy,
+    cols: Math.max(1, Math.floor((p.w - GRID.x0 * sx) / (GRID.cw * sx))),
+    rows: Math.max(1, Math.floor((p.h - GRID.y0 * sy) / (GRID.ch * sy))),
+    w: p.w, h: p.h
+  };
+  p.gridCv.width = p.grid.cols; p.gridCv.height = p.grid.rows;
+  p.tokens = [];
+  for (let r = 0; r < p.grid.rows; r++) {
+    for (let c = 0; c < p.grid.cols; c++) {
+      const psx = p.grid.x0 + c * p.grid.cw, psy = p.grid.y0 + r * p.grid.ch;
+      p.tokens.push({
+        u: (psx + p.grid.cw / 2) / p.grid.w, v: (psy + p.grid.ch / 2) / p.grid.h,
+        sx: psx, sy: psy, ink: 0
+      });
+    }
+  }
+  p.alphaCv.width = p.w; p.alphaCv.height = p.h;
+  p.bloomCv.width = Math.max(4, Math.round(p.w / p.bloomBlur));
+  p.bloomCv.height = Math.max(4, Math.round(p.h / p.bloomBlur));
+  p.ready = true;
+}
+
+function updateAlphaPlanet(p) {
+  const pc = p.alphaCv.getContext("2d", { willReadFrequently: true });
+  pc.clearRect(0, 0, p.w, p.h);
+  pc.drawImage(p.videoEl, 0, 0, p.w, p.h);
+  const img = pc.getImageData(0, 0, p.w, p.h);
+  const px = img.data;
+  for (let i = 0; i < px.length; i += 4) {
+    const r = px[i], g = px[i + 1], b = px[i + 2];
+    const gray = (r + g + b) / 765;
+    const cut = smoothstep(p.blackCut, p.blackCut + p.edgeSoftness, gray);
+    const shaped = clamp((gray - 0.5) * p.contrast + 0.5, 0, 1);
+    const alpha = clamp(shaped * p.brightness, 0, 1) * cut * p.alpha;
+    const boost = p.brightness * lerp(0.96, 1.12, shaped);
+    px[i] = Math.round(clamp(((r / 255 - 0.5) * p.contrast + 0.5) * boost, 0, 1) * 255);
+    px[i + 1] = Math.round(clamp(((g / 255 - 0.5) * p.contrast + 0.5) * boost, 0, 1) * 255);
+    px[i + 2] = Math.round(clamp(((b / 255 - 0.5) * p.contrast + 0.5) * boost, 0, 1) * 255);
+    px[i + 3] = Math.round(alpha * 255);
+  }
+  pc.putImageData(img, 0, 0);
+}
+
+function samplePlanetGrid(p) {
+  if (!p.canSample || !p.grid) return;
+  const g = p.gridCv.getContext("2d", { willReadFrequently: true });
+  try {
+    g.drawImage(p.videoEl, p.grid.x0, p.grid.y0,
+      p.grid.cols * p.grid.cw, p.grid.rows * p.grid.ch,
+      0, 0, p.grid.cols, p.grid.rows);
+    const px = g.getImageData(0, 0, p.grid.cols, p.grid.rows).data;
+    for (let i = 0, j = 0; i < p.tokens.length; i++, j += 4) {
+      p.tokens[i].ink = clamp((px[j] + px[j + 1] + px[j + 2]) / 765 * 2.2, 0, 1);
+    }
+  } catch (e) {
+    p.canSample = false;
+    for (const t of p.tokens) t.ink = 0.6;
+  }
+}
+
+function placePlanet(p, show, now) {
+  const breathe = reduceMotion ? 0 : Math.sin(now * .001 * .09 * 6.28 + p.phase * 6.28);
+  const driftX = reduceMotion ? 0 : Math.sin(now * .001 * .031 * 6.28 + p.phase * 3.7) * 4;
+  const driftY = reduceMotion ? 0 : Math.sin(now * .001 * .027 * 6.28 + p.phase * 5.1) * 3;
+  const dw = p.width * W * lerp(.92, 1.04, show) * (1 + breathe * .008);
+  const dh = dw * p.h / p.w;
+  return {
+    ox: p.x * W - dw / 2 + driftX,
+    oy: p.y * H - dh / 2 + lerp(18, 0, show) + driftY,
+    dw, dh
+  };
+}
+
+function planetTx(t, bounds) { return bounds.x + t.u * bounds.w; }
+function planetTy(t, bounds) { return bounds.y + t.v * bounds.h; }
+function visiblePlanetTokens(p) { return p.tokens.filter(t => t.ink >= TK.inkMin); }
+
+function flashPlanetCell(p, t, bounds, a) {
+  if (!p.grid || a <= 0.01) return;
+  pctx.globalAlpha = clamp(a, 0, 1);
+  pctx.drawImage(p.alphaCv, t.sx, t.sy, p.grid.cw, p.grid.ch,
+    bounds.x + t.sx / p.grid.w * bounds.w,
+    bounds.y + t.sy / p.grid.h * bounds.h,
+    p.grid.cw / p.grid.w * bounds.w,
+    p.grid.ch / p.grid.h * bounds.h);
+  pctx.globalAlpha = 1;
+}
+
+function spawnPlanetGroup(p, now, bounds) {
+  const visible = visiblePlanetTokens(p);
+  if (visible.length < 12) return;
+  const q = pickToken(visible);
+  const qx = planetTx(q, bounds), qy = planetTy(q, bounds);
+  const want = p.minLinks + ((Math.random() * (p.maxLinks - p.minLinks + 1)) | 0);
+  const keys = [];
+  for (let k = 0; k < 280 && keys.length < want; k++) {
+    const t = pickToken(visible);
+    if (t === q) continue;
+    const d = Math.hypot(planetTx(t, bounds) - qx, planetTy(t, bounds) - qy);
+    if (d < 12 || d > p.maxDistance) continue;
+    const score = (1 - d / p.maxDistance) * 1.1 + t.ink * .5 + (Math.random() - .5) * .45;
+    keys.push({ t, score, cs: Math.random() < .5 ? 1 : -1, ph: Math.random() * 400 });
+  }
+  if (!keys.length) return;
+  let mx = -Infinity;
+  for (const k of keys) if (k.score > mx) mx = k.score;
+  let sum = 0;
+  for (const k of keys) { k.e = Math.exp((k.score - mx) / p.temperature); sum += k.e; }
+  let top = 0;
+  for (const k of keys) { k.w = k.e / sum; if (k.w > top) top = k.w; }
+  for (const k of keys) k.n = k.w / top;
+  keys.sort((a, b) => b.w - a.w);
+  keys.forEach((k, i) => k.rank = i / Math.max(1, keys.length - 1));
+  p.groups.push({ q, keys, born: now, ph: Math.random() * 400,
+    life: p.durationMin + Math.random() * (p.durationMax - p.durationMin) });
+  p.nextAt = now + (reduceMotion ? p.intervalMax * 2 : p.intervalMin + Math.random() * (p.intervalMax - p.intervalMin));
+}
+
+function drawPlanetAttention(p, bounds, show, now) {
+  if (!bounds || show <= 0.01) return;
+  if (now >= p.nextAt && p.groups.length < p.heads) spawnPlanetGroup(p, now, bounds);
+  const T = now * 0.001 * FL.speed;
+  const tw = ph => clamp(vnoise(T, ph, 7) * .76 + vnoise(T * 5.2, ph + 91, 13) * .24, 0, 1);
+  pctx.save();
+  pctx.globalCompositeOperation = "screen";
+  pctx.lineCap = "round";
+  for (let i = p.groups.length - 1; i >= 0; i--) {
+    const g = p.groups[i], age = now - g.born;
+    if (age > g.life) { p.groups.splice(i, 1); continue; }
+    const ageP = age / g.life;
+    const env = Math.min(1, ageP / .16) * (1 - smoothstep(.58, 1, ageP)) * show;
+    if (env <= .01) continue;
+    const qx = planetTx(g.q, bounds), qy = planetTy(g.q, bounds);
+    for (const k of g.keys) {
+      const kx = planetTx(k.t, bounds), ky = planetTy(k.t, bounds);
+      const delay = k.rank * .16;
+      const grow = smoothstep(delay, delay + .22, ageP);
+      if (grow <= 0) continue;
+      const mx = (qx + kx) / 2, my = (qy + ky) / 2;
+      const nx = -(ky - qy), ny = kx - qx;
+      const len = Math.hypot(nx, ny) || 1;
+      const off = len * p.curve * k.cs;
+      const cxp = mx + nx / len * off, cyp = my + ny / len * off;
+      const hit = Math.exp(-Math.pow((ageP - (delay + .22)) / .065, 2)) * .85;
+      const pulse = (tw(k.ph) * .65 + .48) + hit;
+      const a = clamp(lerp(p.lineOpacityMin, p.lineOpacityMax, k.n) * env * pulse, 0, 1);
+      const grad = pctx.createLinearGradient(qx, qy, kx, ky);
+      grad.addColorStop(0, `rgba(255,255,255,${a.toFixed(3)})`);
+      grad.addColorStop(1, `rgba(255,255,255,${(a * .3).toFixed(3)})`);
+      pctx.strokeStyle = grad;
+      pctx.lineWidth = lerp(p.lineWidthMin, p.lineWidthMax, k.n) * (1 + hit * .35);
+      const SEG = 14, upto = Math.max(1, Math.round(SEG * grow));
+      pctx.beginPath(); pctx.moveTo(qx, qy);
+      for (let s = 1; s <= upto; s++) {
+        const v = (s / upto) * grow, iv = 1 - v;
+        pctx.lineTo(iv * iv * qx + 2 * iv * v * cxp + v * v * kx,
+                    iv * iv * qy + 2 * iv * v * cyp + v * v * ky);
+      }
+      pctx.stroke();
+      if (grow > .35) {
+        pctx.globalCompositeOperation = "lighter";
+        flashPlanetCell(p, k.t, bounds, (.26 + k.n * .62) * env * (tw(k.ph + 17) * .65 + .34 + hit));
+        pctx.globalCompositeOperation = "screen";
+      }
+    }
+    pctx.globalCompositeOperation = "lighter";
+    flashPlanetCell(p, g.q, bounds, env * p.queryBrightness * (tw(g.ph) * .6 + .48));
+    pctx.globalCompositeOperation = "screen";
+  }
+  pctx.restore();
+}
+
+function drawPlanet(p, show, spaceScale, spacePan, spaceY, extraScale, now) {
+  p.bounds = null;
+  if (!p.ready || show <= 0.01) return;
+  updateAlphaPlanet(p);
+  const P = placePlanet(p, show, now);
+  const ox = W * .5;
+  const oy = H * .48;
+  const cx = ox + spacePan + (P.ox + P.dw * .5 - ox) * spaceScale;
+  const cy = oy + spaceY + (P.oy + P.dh * .5 - oy) * spaceScale;
+  const dw = P.dw * spaceScale * extraScale;
+  const dh = P.dh * spaceScale * extraScale;
+  p.bounds = {
+    x: cx - dw * .5,
+    y: cy - dh * .5,
+    w: dw,
+    h: dh
+  };
+  if ((p.frameN++ % Math.max(1, p.sampleEvery | 0)) === 0) samplePlanetGrid(p);
+  pctx.save();
+  pctx.imageSmoothingEnabled = true;
+  pctx.imageSmoothingQuality = "high";
+  pctx.globalCompositeOperation = "screen";
+  if (p.bloom > 0) {
+    const bc = p.bloomCv.getContext("2d");
+    bc.imageSmoothingEnabled = true; bc.imageSmoothingQuality = "high";
+    bc.clearRect(0, 0, p.bloomCv.width, p.bloomCv.height);
+    bc.drawImage(p.alphaCv, 0, 0, p.bloomCv.width, p.bloomCv.height);
+    pctx.globalAlpha = p.bloom * show;
+    pctx.drawImage(p.bloomCv, p.bounds.x, p.bounds.y, p.bounds.w, p.bounds.h);
+  }
+  pctx.globalAlpha = show;
+  pctx.drawImage(p.alphaCv, p.bounds.x, p.bounds.y, p.bounds.w, p.bounds.h);
+  pctx.globalAlpha = 1;
+  pctx.globalCompositeOperation = "source-over";
+  pctx.restore();
+  drawPlanetAttention(p, p.bounds, show, now);
+}
+
+function drawPlanets(spaceScale, spacePan, spaceY, extraScale, now, sceneFade = 1) {
+  for (const p of planets) {
+    const show = smoothstep(p.start, p.end, twilight) * sceneFade;
+    drawPlanet(p, show, spaceScale, spacePan, spaceY, extraScale, now);
+  }
+}
+
+/* ============================================================
+   布局
+   ============================================================ */
+const cv = document.getElementById("cloud"), ctx = cv.getContext("2d");
+const planetCv = document.getElementById("planet"), pctx = planetCv.getContext("2d");
+const stageEl = document.getElementById("stage"), bgTrackEl = document.getElementById("bgTrack"),
+      nebulaEl = document.getElementById("nebula"), starsEl = document.getElementById("stars");
+const paperModal = document.getElementById("paperModal"), paperClose = document.getElementById("paperClose");
+const paperTitle = document.getElementById("paperTitle"), paperMeta = document.getElementById("paperMeta"),
+      paperSummary = document.getElementById("paperSummary"), paperTags = document.getElementById("paperTags"),
+      paperLinks = document.getElementById("paperLinks"), profilePhoto = document.getElementById("profilePhoto"),
+      profileOrbit = document.getElementById("profileOrbit"), profileHotspot = document.getElementById("profileHotspot");
+let W = 0, H = 0, dpr = 1, zoom = 0, zoomTarget = 0, twilight = 0, twilightTarget = 0;
+let galaxyZoom = 1, galaxyPan = 0, galaxyPanTarget = 0;
+let galaxyDragging = false, galaxyDragX = 0, galaxyDragPan = 0;
+let pointerDownX = 0, pointerDownY = 0, planetDown = null;
+
+function maxGalaxyPan() {
+  return Math.max(0, W * (galaxyZoom - 1) * 0.5);
+}
+
+function clampGalaxyPan(v) {
+  const m = maxGalaxyPan();
+  return clamp(v, -m, m);
+}
+
+function hitPlanet(x, y) {
+  for (let i = planets.length - 1; i >= 0; i--) {
+    const p = planets[i], b = p.bounds;
+    if (!b) continue;
+    const cx = b.x + b.w * .5;
+    const cy = b.y + b.h * .5;
+    const rx = b.w * .56;
+    const ry = b.h * .56;
+    if (((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1) return p;
+  }
+  return null;
+}
+
+function fillModal(data, showPhoto = false) {
+  profilePhoto.style.display = showPhoto ? "block" : "none";
+  paperTitle.textContent = data.title;
+  paperMeta.textContent = data.meta;
+  paperSummary.textContent = data.summary;
+  paperTags.textContent = "";
+  for (const tag of data.tags) {
+    const s = document.createElement("span");
+    s.textContent = tag;
+    paperTags.appendChild(s);
+  }
+  paperLinks.textContent = "";
+  for (const [label, href] of data.links) {
+    const a = document.createElement("a");
+    a.href = href;
+    a.target = "_blank";
+    a.rel = "noreferrer";
+    a.textContent = label;
+    paperLinks.appendChild(a);
+  }
+}
+
+function openPaperModal(planet) {
+  const paper = PAPERS[planet?.paper || 0] || PAPERS[0];
+  fillModal(paper, false);
+  const pub = document.createElement("a");
+  pub.href = "https://deeptimhe.github.io/publications/";
+  pub.target = "_blank";
+  pub.rel = "noreferrer";
+  pub.textContent = "Publications";
+  paperLinks.appendChild(pub);
+  paperModal.classList.add("open");
+  paperModal.setAttribute("aria-hidden", "false");
+}
+
+function openProfileModal() {
+  fillModal(PROFILE, true);
+  paperModal.classList.add("open");
+  paperModal.setAttribute("aria-hidden", "false");
+}
+
+function closePaperModal() {
+  paperModal.classList.remove("open");
+  paperModal.setAttribute("aria-hidden", "true");
+}
+
+function place(z, slideY = 0) {
+  const dw = CL.width * W * lerp(1, SC.scaleEnd, z);
+  const dh = dw * GRID.h / GRID.w;
+  return { ox: CL.x * W - dw / 2 - 5, oy: CL.y * H - dh / 2 - 10 + slideY, dw, dh };
+}
+const tx = (t, P) => P.ox + t.u * P.dw;
+const ty = (t, P) => P.oy + t.v * P.dh;
+const visibleTokens = () => tokens.filter(t => t.ink >= TK.inkMin);
+const pickToken = list => list[(Math.random() * list.length) | 0];
+
+function buildStars() {
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < 102; i++) {
+    const star = document.createElement("i");
+    const x = hash2(i, 3, 21) * 100;
+    const y = Math.pow(hash2(i, 7, 34), 1.18) * 88;
+    const size = lerp(.45, 1.35, Math.pow(hash2(i, 11, 55), 2.8));
+    const warm = hash2(i, 13, 89) > .83;
+    star.style.left = x.toFixed(3) + "%";
+    star.style.top = y.toFixed(3) + "%";
+    star.style.width = size.toFixed(2) + "px";
+    star.style.height = size.toFixed(2) + "px";
+    star.style.opacity = lerp(.32, .88, hash2(i, 17, 144)).toFixed(3);
+    star.style.background = warm ? "rgba(255,228,196,.92)" : "rgba(235,246,255,.94)";
+    star.style.animationDelay = (-hash2(i, 19, 233) * 5).toFixed(2) + "s";
+    star.style.animationDuration = lerp(3.4, 7.8, hash2(i, 23, 377)).toFixed(2) + "s";
+    frag.appendChild(star);
+  }
+  starsEl.appendChild(frag);
+}
+buildStars();
+
+/* ============================================================
+   attention
+   ============================================================ */
+let groups = [], nextAt = 0;
+const pointer = { x: -1e4, y: -1e4, fx: -1e4, fy: -1e4, inside: false };
+
+function spawnGroup(now, P) {
+  const visible = visibleTokens();
+  if (!AT.enabled || visible.length < 20) return;
+  let q = null;
+  if (pointer.inside) {
+    let best = Infinity;
+    for (let k = 0; k < 140; k++) {
+      const t = pickToken(visible);
+      const d = Math.hypot(tx(t, P) - pointer.fx, ty(t, P) - pointer.fy);
+      if (d < AT.hoverRadius && d < best) { best = d; q = t; }
+    }
+    if (q && Math.random() > AT.hoverStrength) q = null;
+  }
+  if (!q) q = pickToken(visible);
+  const qx = tx(q, P), qy = ty(q, P);
+
+  const want = AT.minLinks + ((Math.random() * (AT.maxLinks - AT.minLinks + 1)) | 0);
+  const keys = [];
+  for (let k = 0; k < 400 && keys.length < want; k++) {
+    const t = pickToken(visible);
+    if (t === q) continue;
+    const d = Math.hypot(tx(t, P) - qx, ty(t, P) - qy);
+    if (d < 24 || d > AT.maxDistance) continue;
+    // score ≈ q·k，再过 softmax：少数几条显著、其余长尾，这才是注意力分布的形状
+    const score = (1 - d / AT.maxDistance) * 1.15 + t.ink * .55 + (Math.random() - .5) * .5;
+    keys.push({ t, score, cs: Math.random() < .5 ? 1 : -1, ph: Math.random() * 400 });
+  }
+  if (!keys.length) return;
+  let mx = -Infinity;
+  for (const k of keys) if (k.score > mx) mx = k.score;
+  let sum = 0;
+  for (const k of keys) { k.e = Math.exp((k.score - mx) / AT.temperature); sum += k.e; }
+  let top = 0;
+  for (const k of keys) { k.w = k.e / sum; if (k.w > top) top = k.w; }
+  for (const k of keys) k.n = k.w / top;
+  keys.sort((a, b) => b.w - a.w);
+  keys.forEach((k, i) => k.rank = i / Math.max(1, keys.length - 1));
+
+  groups.push({ q, keys, born: now, ph: Math.random() * 400,
+    life: AT.durationMin + Math.random() * (AT.durationMax - AT.durationMin) });
+  const iv = AT.intervalMin + Math.random() * (AT.intervalMax - AT.intervalMin);
+  nextAt = now + (reduceMotion ? iv * 3 : iv);
+}
+
+// 把某个字符格从原素材再叠一次（lighter），该字符爆亮但字形不变
+function flashCell(t, P, a) {
+  if (a <= 0.01) return;
+  ctx.globalAlpha = clamp(a, 0, 1);
+  ctx.drawImage(alphaCv, t.sx, t.sy, GRID.cw, GRID.ch,
+    P.ox + t.sx / GRID.w * P.dw, P.oy + t.sy / GRID.h * P.dh,
+    GRID.cw / GRID.w * P.dw, GRID.ch / GRID.h * P.dh);
+  ctx.globalAlpha = 1;
+}
+
+function drawAttention(now, P) {
+  const T = now * 0.001 * FL.speed;
+  // 噪声混一路高频。正弦读作脉动，噪声才读作闪烁
+  const tw = ph => clamp(vnoise(T, ph, 7) * (1 - FL.strobe) + vnoise(T * 6.3, ph + 91, 13) * FL.strobe, 0, 1);
+
+  for (let i = groups.length - 1; i >= 0; i--) {
+    const g = groups[i], age = now - g.born;
+    if (age > g.life) { groups.splice(i, 1); continue; }
+    const p = age / g.life;
+    const env = Math.min(1, p / .14) * (1 - smoothstep(.55, 1, p));
+    if (env <= .01) continue;
+
+    const qx = tx(g.q, P), qy = ty(g.q, P);
+    ctx.lineCap = "round";
+
+    for (const k of g.keys) {
+      const kx = tx(k.t, P), ky = ty(k.t, P);
+      const delay = k.rank * AT.sweep * .6;
+      const grow = smoothstep(delay, delay + AT.sweep, p);
+      if (grow <= 0) continue;
+
+      const mx = (qx + kx) / 2, my = (qy + ky) / 2;
+      const nx = -(ky - qy), ny = kx - qx;
+      const len = Math.hypot(nx, ny) || 1;
+      const off = len * AT.curve * k.cs;
+      const cxp = mx + nx / len * off, cyp = my + ny / len * off;
+
+      const hit = Math.exp(-Math.pow((p - (delay + AT.sweep)) / .06, 2)) * FL.arrival;
+      const fl = (1 - FL.lineAmount * (1 - tw(k.ph))) + hit;
+      const a = clamp(lerp(AT.lineOpacityMin, AT.lineOpacityMax, k.n) * env * fl, 0, 1);
+
+      const grad = ctx.createLinearGradient(qx, qy, kx, ky);
+      grad.addColorStop(0, `rgba(255,255,255,${a.toFixed(3)})`);
+      grad.addColorStop(1, `rgba(255,255,255,${(a * .3).toFixed(3)})`);
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = lerp(AT.lineWidthMin, AT.lineWidthMax, k.n) * (1 + hit * .5);
+
+      const SEG = 16, upto = Math.max(1, Math.round(SEG * grow));
+      ctx.beginPath(); ctx.moveTo(qx, qy);
+      for (let s = 1; s <= upto; s++) {
+        const v = (s / upto) * grow, iv = 1 - v;
+        ctx.lineTo(iv * iv * qx + 2 * iv * v * cxp + v * v * kx,
+                   iv * iv * qy + 2 * iv * v * cyp + v * v * ky);
+      }
+      ctx.stroke();
+
+      if (grow > .35) {
+        ctx.globalCompositeOperation = "lighter";
+        flashCell(k.t, P, (.35 + k.n * .65) * env * FL.cellFlash * (tw(k.ph + 17) * .7 + .3 + hit));
+        ctx.globalCompositeOperation = "source-over";
+      }
+    }
+
+    const qf = 1 - FL.lineAmount * .5 * (1 - tw(g.ph));
+    if (AT.queryBox) {
+      const r = Math.max(5, GRID.cw / GRID.w * P.dw * .85);
+      ctx.strokeStyle = `rgba(255,255,255,${(.65 * env * qf).toFixed(3)})`;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(qx - r, qy - r, r * 2, r * 2);
+    }
+    ctx.globalCompositeOperation = "lighter";
+    flashCell(g.q, P, env * qf * AT.queryBrightness);
+    ctx.globalCompositeOperation = "source-over";
+  }
+
+  // 环境闪烁：与 attention 无关，让整片云一直有细碎的呼吸
+  if (FL.sparkle > 0 && !reduceMotion) {
+    ctx.globalCompositeOperation = "lighter";
+    for (let s = 0; s < FL.sparkle; s++) {
+      const ph = s * 137.5;
+      const idx = Math.floor(vnoise(T * .21, ph, 3) * tokens.length) % tokens.length;
+      flashCell(tokens[idx], P, Math.pow(vnoise(T * 1.7, ph + 41, 5), 3.2) * 1.5);
+    }
+    ctx.globalCompositeOperation = "source-over";
+  }
+}
+
+/* ============================================================
+   loop
+   ============================================================ */
+function onScroll() {
+  const max = document.body.scrollHeight - innerHeight;
+  const p = clamp(max > 0 ? scrollY / max : 0, 0, 1);
+  zoomTarget = smoothstep(0, SC.zoomEnd, p);
+  twilightTarget = p;
+}
+addEventListener("scroll", onScroll, { passive: true });
+
+function resize() {
+  dpr = Math.min(devicePixelRatio || 1, RE.maxDpr);
+  const r = stageEl.getBoundingClientRect();
+  W = Math.round(r.width); H = Math.round(r.height);
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  planetCv.width = Math.round(W * dpr); planetCv.height = Math.round(H * dpr);
+  cv.style.width = W + "px"; cv.style.height = H + "px";
+  planetCv.style.width = W + "px"; planetCv.style.height = H + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  onScroll();
+}
+addEventListener("resize", resize);
+addEventListener("pointermove", e => {
+  const r = stageEl.getBoundingClientRect();
+  pointer.x = e.clientX - r.left; pointer.y = e.clientY - r.top;
+  pointer.inside = pointer.x >= 0 && pointer.y >= 0 && pointer.x <= r.width && pointer.y <= r.height;
+  if (galaxyDragging) galaxyPanTarget = clampGalaxyPan(galaxyDragPan + e.clientX - galaxyDragX);
+});
+addEventListener("pointerleave", () => { pointer.inside = false; });
+stageEl.addEventListener("pointerdown", e => {
+  const r = stageEl.getBoundingClientRect();
+  pointerDownX = e.clientX - r.left;
+  pointerDownY = e.clientY - r.top;
+  planetDown = hitPlanet(pointerDownX, pointerDownY);
+  if (galaxyZoom <= 1.12) return;
+  galaxyDragging = true;
+  galaxyDragX = e.clientX;
+  galaxyDragPan = galaxyPanTarget;
+  stageEl.classList.add("dragging");
+  stageEl.setPointerCapture?.(e.pointerId);
+});
+stageEl.addEventListener("pointerup", e => {
+  const r = stageEl.getBoundingClientRect();
+  const x = e.clientX - r.left;
+  const y = e.clientY - r.top;
+  const moved = Math.hypot(x - pointerDownX, y - pointerDownY);
+  const planetUp = hitPlanet(x, y);
+  if (planetDown && moved < 6 && planetUp === planetDown) openPaperModal(planetDown);
+  planetDown = null;
+  galaxyDragging = false;
+  stageEl.classList.remove("dragging");
+  stageEl.releasePointerCapture?.(e.pointerId);
+});
+stageEl.addEventListener("pointercancel", e => {
+  planetDown = null;
+  galaxyDragging = false;
+  stageEl.classList.remove("dragging");
+  stageEl.releasePointerCapture?.(e.pointerId);
+});
+paperClose.addEventListener("click", closePaperModal);
+paperModal.addEventListener("click", e => { if (e.target === paperModal) closePaperModal(); });
+addEventListener("keydown", e => { if (e.key === "Escape") closePaperModal(); });
+profileHotspot.addEventListener("pointerdown", e => e.stopPropagation());
+profileHotspot.addEventListener("pointerup", e => e.stopPropagation());
+profileHotspot.addEventListener("click", e => {
+  e.stopPropagation();
+  openProfileModal();
+});
+
+let fps = 60, lastT = performance.now();
+function frame(now) {
+  const dt = now - lastT; lastT = now;
+  fps = lerp(fps, 1000 / Math.max(dt, 1), .06);
+  ctx.clearRect(0, 0, W, H);
+  pctx.clearRect(0, 0, W, H);
+
+  if (ready) {
+    zoom = lerp(zoom, zoomTarget, reduceMotion ? 1 : .16);
+    twilight = lerp(twilight, twilightTarget, reduceMotion ? 1 : .14);
+    const handoff = smoothstep(SC.handoffStart, SC.handoffEnd, twilight);
+    const deep = smoothstep(SC.deepStart, SC.deepEnd, twilight);
+    const bgTravel = Math.max(0, Math.round(H * SC.bgTrackScreens - H));
+    const bgProgress = smoothstep(SC.handoffStart, SC.spaceEnd, twilight);
+    const bgSlide = Math.round(bgProgress * bgTravel);
+    const nebulaIn = smoothstep(SC.nebulaStart, SC.nebulaEnd, twilight);
+    const galaxyZoomIn = smoothstep(SC.galaxyZoomStart, SC.galaxyZoomEnd, twilight);
+    const finalLift = smoothstep(SC.finalLiftStart, SC.finalLiftEnd, twilight);
+    galaxyZoom = lerp(1, SC.galaxyZoomMax, galaxyZoomIn);
+    const planetExtraZoom = lerp(1, config.planetDefaults.zoomBoost, galaxyZoomIn);
+    if (galaxyZoom <= 1.02) galaxyPanTarget = 0;
+    galaxyPanTarget = clampGalaxyPan(galaxyPanTarget);
+    galaxyPan = lerp(galaxyPan, galaxyPanTarget, reduceMotion ? 1 : .18);
+    stageEl.classList.toggle("zoomed", galaxyZoom > 1.12);
+    const P = place(zoom, bgSlide);
+
+    const t = now * .001;
+    const dx = reduceMotion ? 0 : Math.sin(t * MO.driftSpeed * 6.28) * MO.driftX
+                                + Math.sin(t * MO.driftSpeed * 2.13 + 1.7) * MO.driftX * .35;
+    const dy = reduceMotion ? 0 : Math.sin(t * MO.driftSpeed * 4.11 + .8) * MO.driftY;
+    const br = reduceMotion ? 1 : 1 + Math.sin(t * MO.breatheSpeed * 6.28) * MO.breatheScale;
+
+    ctx.save();
+    ctx.translate(dx, dy);
+    ctx.translate(CL.x * W, CL.y * H); ctx.scale(br, br); ctx.translate(-CL.x * W, -CL.y * H);
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+
+    updateAlphaCloud();
+
+    // 云层显示模式为 screen；视频灰度先转换为 alpha，RGB 统一为白色。
+    ctx.globalCompositeOperation = "screen";
+    if (CL.bloom > 0) {
+      const bc = bloomCv.getContext("2d");
+      bc.imageSmoothingEnabled = true; bc.imageSmoothingQuality = "high";
+      bc.clearRect(0, 0, bloomCv.width, bloomCv.height);
+      bc.drawImage(alphaCv, 0, 0, bloomCv.width, bloomCv.height);
+      ctx.globalAlpha = CL.bloom;
+      ctx.drawImage(bloomCv, P.ox, P.oy, P.dw, P.dh);
+    }
+    ctx.globalAlpha = 1;
+    ctx.drawImage(alphaCv, P.ox, P.oy, P.dw, P.dh);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "source-over";
+
+    if ((frameN++ % Math.max(1, CL.sampleEvery | 0)) === 0) sampleGrid();
+
+    pointer.fx = lerp(pointer.fx, pointer.x, AT.transitionSpeed);
+    pointer.fy = lerp(pointer.fy, pointer.y, AT.transitionSpeed);
+    if (now >= nextAt && groups.length < AT.heads) spawnGroup(now, P);
+    drawAttention(now, P);
+    ctx.restore();
+
+    cv.style.opacity = (1 - smoothstep(.18, .72, handoff)).toFixed(3);
+    cv.style.transform = "none";
+    const sceneFade = 1 - smoothstep(.24, 1, finalLift);
+    const profileIn = smoothstep(.34, .86, finalLift);
+    nebulaEl.style.opacity = (nebulaIn * .55 * sceneFade).toFixed(3);
+    const baseSpaceY = lerp(-18, 8, handoff);
+    const sceneY = baseSpaceY - finalLift * H * SC.finalLiftDistance;
+    const sceneTransform =
+      `translate3d(${galaxyPan.toFixed(2)}px, ${sceneY.toFixed(2)}px, 0) scale(${galaxyZoom.toFixed(4)})`;
+    const starZoom = lerp(galaxyZoom, 1, finalLift);
+    const starPan = lerp(galaxyPan, 0, finalLift);
+    const starY = lerp(baseSpaceY, 0, finalLift);
+    const starTransform =
+      `translate3d(${starPan.toFixed(2)}px, ${starY.toFixed(2)}px, 0) scale(${starZoom.toFixed(4)})`;
+    nebulaEl.style.transform = sceneTransform;
+    planetCv.style.transform = "none";
+    drawPlanets(galaxyZoom, galaxyPan, sceneY, planetExtraZoom, now, sceneFade);
+    starsEl.style.opacity = smoothstep(.28, 1, handoff).toFixed(3);
+    starsEl.style.transform = starTransform;
+    profileOrbit.style.opacity = profileIn.toFixed(3);
+    profileOrbit.style.pointerEvents = profileIn > .72 ? "auto" : "none";
+    profileOrbit.setAttribute("aria-hidden", profileIn > .72 ? "false" : "true");
+    profileOrbit.style.transform =
+      `translate3d(-50%, -50%, 0) scale(${lerp(.92, 1, profileIn).toFixed(4)})`;
+    bgTrackEl.style.transform =
+      `translate3d(0, ${bgSlide.toFixed(2)}px, 0) scale(${lerp(1, SC.skyScaleEnd, zoom).toFixed(4)})`;
+  }
+
+  if (dbgOn) fpsEl.innerHTML =
+    `fps <b>${fps.toFixed(0)}</b> · zoom <b>${zoom.toFixed(2)}</b><br>` +
+    `token <b>${tokens.length}</b> · 并发 <b>${groups.length}</b>`;
+  requestAnimationFrame(frame);
+}
+
+/* ============================================================
+   debug (?debug)
+   ============================================================ */
+const dbgOn = new URLSearchParams(location.search).has("debug");
+const dbgEl = document.getElementById("dbg"), fpsEl = document.getElementById("fps");
+if (dbgOn) {
+  dbgEl.classList.add("on");
+  const ui = document.getElementById("dbgui");
+  [
+    ["云", CL, [["x","水平",0,1,.005],["y","垂直",0,1,.005],["width","云宽",.2,1.6,.005],
+      ["alpha","整体强度",.1,1,.01],["contrast","对比（压暗字）",.5,3,.01],["brightness","亮度",.5,2,.01],
+      ["bloom","柔光强度",0,1,.01],["bloomBlur","柔光半径",6,80,1],["sampleEvery","采样间隔帧",1,12,1]]],
+    ["闪烁", FL, [["lineAmount","连线明暗深度",0,1,.02],["speed","闪烁频率",.3,16,.1],
+      ["strobe","高频抖动",0,1,.02],["arrival","抵达亮闪",0,3,.05],
+      ["cellFlash","字符爆亮",0,3,.05],["sparkle","环境闪烁数",0,60,1]]],
+    ["attention", AT, [["heads","并发头数",1,8,1],["minLinks","最少连线",1,14,1],["maxLinks","最多连线",1,20,1],
+      ["lineOpacityMax","最强连线亮度",.05,1,.01],["lineWidthMax","最强连线粗细",.5,4,.1],
+      ["temperature","softmax 温度",.08,1.5,.01],["sweep","分发时长",.05,.9,.01],
+      ["maxDistance","最大距离",60,700,5],["curve","弯曲度",0,.4,.01],
+      ["intervalMin","间隔下限",120,3000,20],["durationMin","存活下限",300,3000,50],
+      ["hoverRadius","鼠标半径",40,500,5],["hoverStrength","鼠标强度",0,1,.02]]],
+    ["动态", MO, [["driftX","横向漂移",0,30,.5],["driftY","纵向漂移",0,20,.5],
+      ["driftSpeed","漂移速度",.005,.2,.005],["breatheScale","呼吸幅度",0,.05,.001]]],
+    ["缩放", SC, [["scaleEnd","最大倍数",1,4,.05],["skyScaleEnd","背景推进",1,1.6,.01]]]
+  ].forEach(([title, obj, rows]) => {
+    const h = document.createElement("div"); h.className = "sec"; h.textContent = title; ui.appendChild(h);
+    rows.forEach(([k, label, min, max, stp]) => {
+      const w = document.createElement("div"); w.className = "row";
+      const l = document.createElement("div"); l.className = "lab";
+      const s1 = document.createElement("span"); s1.textContent = label;
+      const b = document.createElement("b"); b.textContent = obj[k];
+      l.append(s1, b);
+      const inp = document.createElement("input");
+      inp.type = "range"; inp.min = min; inp.max = max; inp.step = stp; inp.value = obj[k];
+      inp.setAttribute("aria-label", label);
+      inp.oninput = () => {
+        obj[k] = parseFloat(inp.value); b.textContent = inp.value;
+        if (k === "bloomBlur" && vid) buildBloom();
+      };
+      w.append(l, inp); ui.appendChild(w);
+    });
+  });
+  const btn = document.createElement("button");
+  btn.textContent = "导出参数";
+  btn.style.cssText = "margin-top:12px;font:inherit;color:#fff;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);padding:5px 9px;cursor:pointer";
+  btn.onclick = () => prompt("config", JSON.stringify(config));
+  ui.appendChild(btn);
+}
+
+resize();
+
+// <video> 对 data: URI 支持很差（Safari 直接拒绝，Chrome 也常失败），
+// 所以在运行时转成 Blob URL。blob 同源，canvas 不会被污染。
+function toBlobURL(uri) {
+  const bin = atob(uri.slice(uri.indexOf(",") + 1));
+  const buf = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  return URL.createObjectURL(new Blob([buf], { type: "video/mp4" }));
+}
+const videoSource = uri => uri.startsWith("data:") ? toBlobURL(uri) : uri;
+
+const v = document.createElement("video");
+v.muted = true; v.loop = true; v.playsInline = true; v.autoplay = true;
+v.setAttribute("muted", ""); v.setAttribute("playsinline", "");
+v.oncanplay = () => { if (!ready) { prepare(v); resize(); } v.play().catch(() => {}); };
+
+let triedFallback = false;
+v.onerror = () => {
+  if (!triedFallback) { triedFallback = true; v.src = "cloud.mp4"; return; }  // 兼容旧版同目录视频
+  const n = document.createElement("p");
+  n.textContent = "视频加载失败：请确认 assets/ascii-animation-4.mp4 存在。";
+  n.style.cssText = "position:fixed;left:16px;bottom:14px;color:#fff;font:12px ui-monospace,monospace;text-shadow:0 1px 4px rgba(0,0,0,.5);z-index:9";
+  document.body.appendChild(n);
+};
+
+try { v.src = videoSource(VIDEO_URI); }
+catch (e) { v.src = "cloud.mp4"; }
+
+function createPlanetVideo(p, index) {
+  const pv = document.createElement("video");
+  pv.muted = true; pv.loop = true; pv.playsInline = true; pv.autoplay = true;
+  pv.setAttribute("muted", ""); pv.setAttribute("playsinline", "");
+  pv.oncanplay = () => {
+    if (!p.ready) { preparePlanet(p, pv); resize(); }
+    pv.play().catch(() => {});
+  };
+  pv.onerror = () => {
+    const n = document.createElement("p");
+    n.textContent = `视频加载失败：请确认 ${p.video} 存在。`;
+    n.style.cssText = `position:fixed;left:16px;bottom:${34 + index * 18}px;color:#fff;font:12px ui-monospace,monospace;text-shadow:0 1px 4px rgba(0,0,0,.5);z-index:9`;
+    document.body.appendChild(n);
+  };
+  pv.src = videoSource(p.video);
+  p.videoEl = pv;
+}
+planets.forEach(createPlanetVideo);
+
+// 部分浏览器要一次交互才肯播
+addEventListener("pointerdown", () => {
+  v.play().catch(() => {});
+  for (const p of planets) p.videoEl?.play().catch(() => {});
+}, { once: true });
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
