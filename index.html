@@ -12,6 +12,35 @@
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     -webkit-font-smoothing: antialiased;
   }
+  #loader {
+    position: fixed; inset: 0; z-index: 30;
+    display: grid; place-items: end center;
+    padding-bottom: max(36px, calc((100vh - min(56.25vw, 100vh)) / 2 + 38px));
+    background: #078fdb;
+    transition: opacity .55s ease, visibility .55s ease;
+  }
+  #loader.done {
+    opacity: 0; visibility: hidden; pointer-events: none;
+  }
+  .loader-track {
+    width: min(280px, 38vw); height: 1px;
+    background: rgba(232,247,255,.24); overflow: hidden;
+  }
+  .loader-inner {
+    display: grid; gap: 9px; justify-items: center;
+  }
+  #loaderPercent {
+    color: rgba(246,252,255,.78);
+    font: 11px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    letter-spacing: 0; font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 12px rgba(255,255,255,.22);
+  }
+  #loaderBar {
+    display: block; width: 100%; height: 100%;
+    transform: scaleX(0); transform-origin: left center;
+    background: rgba(246,252,255,.84);
+    box-shadow: 0 0 12px rgba(255,255,255,.34);
+  }
   #stage {
     position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
     width: min(100vw, 177.7778vh); height: min(56.25vw, 100vh); overflow: hidden;
@@ -224,6 +253,12 @@
 </head>
 <body>
 
+<div id="loader" aria-hidden="true">
+  <div class="loader-inner">
+    <div id="loaderPercent">0%</div>
+    <div class="loader-track"><span id="loaderBar"></span></div>
+  </div>
+</div>
 <div id="stage">
   <div id="bgTrack"></div>
   <div id="nebula"></div>
@@ -373,6 +408,45 @@ const config = {
 const CL = config.cloud, TK = config.token, MO = config.motion,
       AT = config.attention, FL = config.flicker, SC = config.scroll, RE = config.rendering;
 const PLANETS = config.planets.map(p => ({ ...config.planetDefaults, ...p }));
+const loaderEl = document.getElementById("loader"), loaderBar = document.getElementById("loaderBar"),
+      loaderPercent = document.getElementById("loaderPercent");
+const loadingKeys = new Set();
+const LOADING_TOTAL = 4 + 1 + PLANETS.length + 1 + 1;
+const loaderMinUntil = performance.now() + 650;
+let loaderTarget = 0, loaderShown = 0;
+
+function markLoaded(key) {
+  if (loadingKeys.has(key)) return;
+  loadingKeys.add(key);
+  loaderTarget = Math.min(.96, loadingKeys.size / LOADING_TOTAL);
+  if (loadingKeys.size >= LOADING_TOTAL) loaderTarget = 1;
+}
+
+function watchImage(key, src) {
+  const img = new Image();
+  img.onload = () => markLoaded(key);
+  img.onerror = () => markLoaded(key);
+  img.src = src;
+}
+
+function updateLoader() {
+  if (!loaderEl || !loaderBar) return;
+  loaderShown = lerp(loaderShown, loaderTarget, .13);
+  if (loaderTarget >= 1 && performance.now() > loaderMinUntil) loaderShown = Math.max(loaderShown, .995);
+  loaderBar.style.transform = `scaleX(${loaderShown.toFixed(4)})`;
+  if (loaderPercent) loaderPercent.textContent = `${Math.min(100, Math.round(loaderShown * 100))}%`;
+  if (loaderShown >= .995 && loaderTarget >= 1 && performance.now() > loaderMinUntil) {
+    loaderEl.classList.add("done");
+    return;
+  }
+  requestAnimationFrame(updateLoader);
+}
+watchImage("bg", "assets/bg.jpg");
+watchImage("nebula", "assets/ascii-nebula.jpg");
+watchImage("dot", "assets/profile-blue-dot.jpg?v=20260905b");
+watchImage("profile", "assets/deeptimhe-profile.png");
+addEventListener("load", () => markLoaded("window"), { once: true });
+requestAnimationFrame(updateLoader);
 const PAPERS = [
   {
     title: "AI4AI at Scale: A Full-Pipeline System for Enhancing LLM Agentic Capabilities",
@@ -1318,10 +1392,11 @@ const videoSource = uri => uri.startsWith("data:") ? toBlobURL(uri) : uri;
 const v = document.createElement("video");
 v.muted = true; v.loop = true; v.playsInline = true; v.autoplay = true;
 v.setAttribute("muted", ""); v.setAttribute("playsinline", "");
-v.oncanplay = () => { if (!ready) { prepare(v); resize(); } v.play().catch(() => {}); };
+v.oncanplay = () => { markLoaded("cloud-video"); if (!ready) { prepare(v); resize(); } v.play().catch(() => {}); };
 
 let triedFallback = false;
 v.onerror = () => {
+  markLoaded("cloud-video");
   if (!triedFallback) { triedFallback = true; v.src = "cloud.mp4"; return; }  // 兼容旧版同目录视频
   const n = document.createElement("p");
   n.textContent = "视频加载失败：请确认 assets/ascii-animation-4.mp4 存在。";
@@ -1337,10 +1412,12 @@ function createPlanetVideo(p, index) {
   pv.muted = true; pv.loop = true; pv.playsInline = true; pv.autoplay = true;
   pv.setAttribute("muted", ""); pv.setAttribute("playsinline", "");
   pv.oncanplay = () => {
+    markLoaded(`planet-video-${index}`);
     if (!p.ready) { preparePlanet(p, pv); resize(); }
     pv.play().catch(() => {});
   };
   pv.onerror = () => {
+    markLoaded(`planet-video-${index}`);
     const n = document.createElement("p");
     n.textContent = `视频加载失败：请确认 ${p.video} 存在。`;
     n.style.cssText = `position:fixed;left:16px;bottom:${34 + index * 18}px;color:#fff;font:12px ui-monospace,monospace;text-shadow:0 1px 4px rgba(0,0,0,.5);z-index:9`;
@@ -1350,6 +1427,9 @@ function createPlanetVideo(p, index) {
   p.videoEl = pv;
 }
 planets.forEach(createPlanetVideo);
+bgMusic?.addEventListener("canplaythrough", () => markLoaded("music"), { once: true });
+bgMusic?.addEventListener("error", () => markLoaded("music"), { once: true });
+setTimeout(() => markLoaded("music"), 2400);
 
 // 部分浏览器要一次交互才肯播
 addEventListener("pointerdown", () => {
