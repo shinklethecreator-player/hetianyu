@@ -92,25 +92,61 @@
     cursor: pointer; pointer-events: auto;
   }
   #profileHotspot::before {
-    content: ""; position: absolute; inset: 12%; border-radius: 50%;
-    background: radial-gradient(circle, rgba(104,245,255,.46) 0 23%, rgba(34,162,255,.24) 45%, rgba(36,126,255,0) 72%);
-    box-shadow: 0 0 18px rgba(74,211,255,.29), 0 0 42px rgba(49,118,255,.17);
+    content: ""; position: absolute; inset: 14%; border-radius: 50%;
+    background: url("assets/profile-blue-dot.jpg") center/contain no-repeat;
+    mix-blend-mode: screen;
+    filter: brightness(1.06) drop-shadow(0 0 10px rgba(68,197,255,.24));
     animation: blueBreath 3.6s ease-in-out infinite;
   }
   #profileHotspot::after {
-    content: ""; position: absolute; inset: 28%; border-radius: 50%;
-    background: rgba(145,250,255,.26); filter: blur(6px);
+    content: ""; position: absolute; inset: 27%; border-radius: 50%;
+    background: rgba(118,226,255,.12); filter: blur(8px);
     animation: blueCore 2.8s ease-in-out infinite;
   }
   @keyframes blueBreath {
-    0%, 100% { opacity: .26; transform: scale(.88); }
-    50% { opacity: .48; transform: scale(1.12); }
+    0%, 100% { opacity: .58; transform: scale(.96); }
+    50% { opacity: .86; transform: scale(1.045); }
   }
   @keyframes blueCore {
-    0%, 100% { opacity: .21; transform: scale(.9); }
-    50% { opacity: .39; transform: scale(1.18); }
+    0%, 100% { opacity: .16; transform: scale(.95); }
+    50% { opacity: .30; transform: scale(1.10); }
   }
   #cloud { position: absolute; inset: 0; z-index: 4; }
+  #pageTabs {
+    position: fixed; left: max(18px, calc((100vw - min(100vw, 177.7778vh)) / 2 + 18px));
+    top: 50%; transform: translateY(-50%); z-index: 7;
+    display: flex; flex-direction: column; gap: 10px;
+    font: 11px/1.2 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    letter-spacing: 0; pointer-events: auto;
+  }
+  #pageTabs span {
+    color: rgba(229,241,255,.34);
+    text-shadow: 0 0 12px rgba(71,155,255,.08);
+    transition: color .22s ease, text-shadow .22s ease;
+    cursor: pointer;
+  }
+  #pageTabs span.active {
+    color: rgba(255,255,255,.92);
+    text-shadow: 0 0 12px rgba(96,184,255,.38);
+  }
+  #scaleRuler {
+    position: fixed; right: max(18px, calc((100vw - min(100vw, 177.7778vh)) / 2 + 20px));
+    top: max(18px, calc((100vh - min(56.25vw, 100vh)) / 2 + 18px)); z-index: 7;
+    display: grid; grid-template-columns: 18px auto; column-gap: 8px; row-gap: 6px;
+    align-items: center; pointer-events: none;
+    font: 10px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    letter-spacing: 0; color: rgba(229,241,255,.38);
+  }
+  #scaleRuler span:nth-child(odd) {
+    width: 18px; height: 1px; background: rgba(220,237,255,.24);
+  }
+  #scaleRuler span:nth-child(even) {
+    min-width: 66px; transition: color .22s ease, text-shadow .22s ease;
+  }
+  #scaleRuler span.active {
+    color: rgba(255,255,255,.86);
+    text-shadow: 0 0 10px rgba(91,173,255,.32);
+  }
   #paperModal {
     position: fixed; inset: 0; z-index: 8; display: grid; place-items: center;
     padding: clamp(18px, 4vw, 56px); pointer-events: none; opacity: 0;
@@ -193,6 +229,21 @@
     <div id="paperTags" class="paper-tags" aria-label="标签"></div>
     <nav id="paperLinks" class="paper-links" aria-label="论文链接"></nav>
   </article>
+</div>
+<nav id="pageTabs" aria-label="页面位置">
+  <span data-page="sky">sky</span>
+  <span data-page="deep">deep space</span>
+  <span data-page="logbook">logbook</span>
+</nav>
+<div id="scaleRuler" aria-hidden="true">
+  <span></span><span>10 km</span>
+  <span></span><span>100 km</span>
+  <span></span><span>384,400 km</span>
+  <span></span><span>1 AU</span>
+  <span></span><span>1 ly</span>
+  <span></span><span>1 pc</span>
+  <span></span><span>100,000 ly</span>
+  <span></span><span>1 Mpc</span>
 </div>
 <aside id="dbg"><h1>debug</h1><div id="dbgui"></div><div id="fps"></div></aside>
 
@@ -417,6 +468,7 @@ const planets = PLANETS.map(p => ({
   groups: [],
   nextAt: 0,
   frameN: 0,
+  alphaFrameN: 0,
   canSample: true,
   bounds: null,
   alphaCv: document.createElement("canvas"),
@@ -666,7 +718,7 @@ function drawPlanetAttention(p, bounds, show, now) {
 function drawPlanet(p, show, spaceScale, spacePan, spaceY, extraScale, now) {
   p.bounds = null;
   if (!p.ready || show <= 0.01) return;
-  updateAlphaPlanet(p);
+  if ((p.alphaFrameN++ % 2) === 0) updateAlphaPlanet(p);
   const P = placePlanet(p, show, now);
   const ox = W * .5;
   const oy = H * .48;
@@ -720,6 +772,8 @@ const paperTitle = document.getElementById("paperTitle"), paperMeta = document.g
       paperSummary = document.getElementById("paperSummary"), paperTags = document.getElementById("paperTags"),
       paperLinks = document.getElementById("paperLinks"), profilePhoto = document.getElementById("profilePhoto"),
       profileOrbit = document.getElementById("profileOrbit"), profileHotspot = document.getElementById("profileHotspot");
+const pageTabItems = [...document.querySelectorAll("#pageTabs span")];
+const scaleItems = [...document.querySelectorAll("#scaleRuler span:nth-child(even)")];
 let W = 0, H = 0, dpr = 1, zoom = 0, zoomTarget = 0, twilight = 0, twilightTarget = 0;
 let galaxyZoom = 1, galaxyPan = 0, galaxyPanTarget = 0;
 let galaxyDragging = false, galaxyDragX = 0, galaxyDragPan = 0;
@@ -791,6 +845,19 @@ function openProfileModal() {
 function closePaperModal() {
   paperModal.classList.remove("open");
   paperModal.setAttribute("aria-hidden", "true");
+}
+
+function setVideoPlaying(el, shouldPlay) {
+  if (!el) return;
+  if (shouldPlay && el.paused) el.play().catch(() => {});
+  if (!shouldPlay && !el.paused) el.pause();
+}
+
+function updateChrome(twilightValue) {
+  const page = twilightValue < SC.handoffStart ? "sky" : twilightValue < SC.finalLiftStart ? "deep" : "logbook";
+  for (const item of pageTabItems) item.classList.toggle("active", item.dataset.page === page);
+  const idx = clamp(Math.floor(twilightValue * scaleItems.length), 0, scaleItems.length - 1);
+  scaleItems.forEach((item, i) => item.classList.toggle("active", i === idx));
 }
 
 function place(z, slideY = 0) {
@@ -1032,6 +1099,13 @@ profileHotspot.addEventListener("click", e => {
   e.stopPropagation();
   openProfileModal();
 });
+pageTabItems.forEach(item => {
+  item.addEventListener("click", () => {
+    const max = document.body.scrollHeight - innerHeight;
+    const target = item.dataset.page === "sky" ? 0 : item.dataset.page === "deep" ? .66 : .98;
+    scrollTo({ top: Math.max(0, max * target), behavior: reduceMotion ? "auto" : "smooth" });
+  });
+});
 
 let fps = 60, lastT = performance.now();
 function frame(now) {
@@ -1043,6 +1117,7 @@ function frame(now) {
   if (ready) {
     zoom = lerp(zoom, zoomTarget, reduceMotion ? 1 : .16);
     twilight = lerp(twilight, twilightTarget, reduceMotion ? 1 : .14);
+    updateChrome(twilight);
     const handoff = smoothstep(SC.handoffStart, SC.handoffEnd, twilight);
     const deep = smoothstep(SC.deepStart, SC.deepEnd, twilight);
     const bgTravel = Math.max(0, Math.round(H * SC.bgTrackScreens - H));
@@ -1064,41 +1139,47 @@ function frame(now) {
                                 + Math.sin(t * MO.driftSpeed * 2.13 + 1.7) * MO.driftX * .35;
     const dy = reduceMotion ? 0 : Math.sin(t * MO.driftSpeed * 4.11 + .8) * MO.driftY;
     const br = reduceMotion ? 1 : 1 + Math.sin(t * MO.breatheSpeed * 6.28) * MO.breatheScale;
+    const cloudOpacity = 1 - smoothstep(.18, .72, handoff);
+    setVideoPlaying(v, cloudOpacity > .01);
 
-    ctx.save();
-    ctx.translate(dx, dy);
-    ctx.translate(CL.x * W, CL.y * H); ctx.scale(br, br); ctx.translate(-CL.x * W, -CL.y * H);
-    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+    if (cloudOpacity > .01) {
+      ctx.save();
+      ctx.translate(dx, dy);
+      ctx.translate(CL.x * W, CL.y * H); ctx.scale(br, br); ctx.translate(-CL.x * W, -CL.y * H);
+      ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
 
-    updateAlphaCloud();
+      updateAlphaCloud();
 
-    // 云层显示模式为 screen；视频灰度先转换为 alpha，RGB 统一为白色。
-    ctx.globalCompositeOperation = "screen";
-    if (CL.bloom > 0) {
-      const bc = bloomCv.getContext("2d");
-      bc.imageSmoothingEnabled = true; bc.imageSmoothingQuality = "high";
-      bc.clearRect(0, 0, bloomCv.width, bloomCv.height);
-      bc.drawImage(alphaCv, 0, 0, bloomCv.width, bloomCv.height);
-      ctx.globalAlpha = CL.bloom;
-      ctx.drawImage(bloomCv, P.ox, P.oy, P.dw, P.dh);
+      // 云层显示模式为 screen；视频灰度先转换为 alpha，RGB 统一为白色。
+      ctx.globalCompositeOperation = "screen";
+      if (CL.bloom > 0) {
+        const bc = bloomCv.getContext("2d");
+        bc.imageSmoothingEnabled = true; bc.imageSmoothingQuality = "high";
+        bc.clearRect(0, 0, bloomCv.width, bloomCv.height);
+        bc.drawImage(alphaCv, 0, 0, bloomCv.width, bloomCv.height);
+        ctx.globalAlpha = CL.bloom;
+        ctx.drawImage(bloomCv, P.ox, P.oy, P.dw, P.dh);
+      }
+      ctx.globalAlpha = 1;
+      ctx.drawImage(alphaCv, P.ox, P.oy, P.dw, P.dh);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+
+      if ((frameN++ % Math.max(1, CL.sampleEvery | 0)) === 0) sampleGrid();
+
+      pointer.fx = lerp(pointer.fx, pointer.x, AT.transitionSpeed);
+      pointer.fy = lerp(pointer.fy, pointer.y, AT.transitionSpeed);
+      if (now >= nextAt && groups.length < AT.heads) spawnGroup(now, P);
+      drawAttention(now, P);
+      ctx.restore();
     }
-    ctx.globalAlpha = 1;
-    ctx.drawImage(alphaCv, P.ox, P.oy, P.dw, P.dh);
-    ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = "source-over";
 
-    if ((frameN++ % Math.max(1, CL.sampleEvery | 0)) === 0) sampleGrid();
-
-    pointer.fx = lerp(pointer.fx, pointer.x, AT.transitionSpeed);
-    pointer.fy = lerp(pointer.fy, pointer.y, AT.transitionSpeed);
-    if (now >= nextAt && groups.length < AT.heads) spawnGroup(now, P);
-    drawAttention(now, P);
-    ctx.restore();
-
-    cv.style.opacity = (1 - smoothstep(.18, .72, handoff)).toFixed(3);
+    cv.style.opacity = cloudOpacity.toFixed(3);
     cv.style.transform = "none";
     const sceneFade = 1 - smoothstep(.24, 1, finalLift);
     const profileIn = smoothstep(.34, .86, finalLift);
+    const planetsLive = sceneFade > .01 && twilight > .50;
+    for (const p of planets) setVideoPlaying(p.videoEl, planetsLive);
     nebulaEl.style.opacity = (nebulaIn * .55 * sceneFade).toFixed(3);
     const baseSpaceY = lerp(-18, 8, handoff);
     const sceneY = baseSpaceY - finalLift * H * SC.finalLiftDistance;
